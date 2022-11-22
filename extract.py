@@ -1,44 +1,9 @@
 import pandas as pd
 import numpy as np
-from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium.webdriver.chrome.service import Service as ChromeService
-from selenium.webdriver.common.by import By
-import time
-
-
-def bidProjectSearch(searchTerm="协议库存"):
-
-    # Initiate Google Chrome Driver
-    service = ChromeService(executable_path=ChromeDriverManager().install())
-    driver = webdriver.Chrome(service=service)
-
-    try:
-        # Open ECP2.0 Website and Manuveur to Relevant Pages
-        driver.get('https://ecp.sgcc.com.cn/ecp2.0/portal/#/')
-        time.sleep(5)
-
-        # Subject to change if they changed the website
-        bidSection = driver.find_element(
-            By.XPATH, "/html/body/app-root/app-main/app-nav/div/div/ul/li[2]/ul/li[2]/a")
-        bidSectionLink = bidSection.get_attribute("href")
-        driver.get(bidSectionLink)
-        time.sleep(3)
-
-    except:
-        return "ECP2.0 Website Layout Mightbe changed, Examine XPATH"
-
-    # Search relevant keys
-    searchBox = driver.find_element(By.NAME, "key")
-    searchBox.send_keys()
-    searchBox.submit(searchTerm)
-    time.sleep(1)
-
-    # If result not found, return error
-    try:
-        driver.find_element(By.XPATH, "//page/div")
-    except:
-        return f"Search Term {searchTerm} entered didn't match any results."
+from openpyxl import *
+from openpyxl.styles import PatternFill, Border, Side, Alignment, colors
+from openpyxl.utils import get_column_letter
+import re
 
 
 def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
@@ -74,10 +39,64 @@ def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
 
     # Writing Found Sheets into new sheets
     try:
-        with pd.ExcelWriter(savePath + fileName + '相关清单.xlsx') as writer:
+        saveFullPath = savePath + fileName + "相关清单.xlsx"
+        with pd.ExcelWriter(saveFullPath, engine="openpyxl") as writer:
             for key in downloadFile:
                 downloadFile[key].to_excel(writer, sheet_name=key, index=False)
-        return f"Subprojects successully filtered. {len(downloadFile)} related subprojects found."
+        print(
+            f"Subprojects successully filtered. {len(downloadFile)} related subprojects found.")
+        return saveFullPath
 
     except:
         return "Errors occured during writing process."
+
+
+def relatedSheetProcessing(relatedSheetPath: str, parameterPath: str):
+    '''
+    Collect product information, type, amount, and delivery location
+    '''
+    # Check input type
+    assert ".xlsx" in relatedSheetPath, f"Related Sheet FilePath given is not Excel"
+    assert ".xlsx" in parameterPath, f"Parameters FilePath given is not Excel"
+
+    relatedSheet = pd.read_excel(relatedSheetPath, sheet_name=None)
+    parameterSheet = pd.read_excel(parameterPath, sheet_name=None)
+
+    for name, sheet in relatedSheet.items():
+
+        # Collect information from relatedSheet
+        projectCode = sheet.loc[1, '分标编号']
+        projectOwner = sheet.loc[1, '项目单位']
+        projectName = name
+        locToBeAdded = []
+
+        # Modify information in the worksheet
+        projectBao = sorted([x.replace("包", "包0") if len(
+            x) == 2 else x for x in list(set(sheet.loc[:, '包名称']))])
+        projectType = sorted(list(set(sheet.loc[:, '物资名称'])))
+        projectInfo = [[projectCode, projectOwner, projectName, bao]
+                       for bao in projectBao]
+        projectInfo.sort()
+        projectInfoDf = pd.DataFrame(projectInfo)
+        projectProd = [[projectCode, projectOwner, prod]
+                       for prod in projectType]
+        projectProd.sort()
+        projectProdDf = pd.DataFrame(projectProd)
+
+        # Add unknown location to the list if any
+        projectDeliveryLoc = sheet.loc[:, '需求单位'].unique()
+        locParameters = parameterSheet['Sheet3'].loc[:, '需求单位'].values
+        if len(projectDeliveryLoc) > 1:
+            for deliveryLoc in projectDeliveryLoc:
+                if deliveryLoc not in locParameters:
+                    locToBeAdded.append(deliveryLoc)
+        locDf = pd.DataFrame(locToBeAdded)
+
+        # Paste info to Parameters
+        with pd.ExcelWriter(parameterPath, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
+            projectInfoDf.to_excel(writer, sheet_name="Sheet1",
+                                   startrow=writer.sheets['Sheet1'].max_row, index=False, header=False)
+            projectProdDf.to_excel(writer, sheet_name="Sheet2",
+                                   startrow=writer.sheets['Sheet2'].max_row, index=False, header=False)
+            locDf.to_excel(writer, sheet_name="Sheet3",
+                           startrow=writer.sheets['Sheet3'].max_row, index=False, header=False)
