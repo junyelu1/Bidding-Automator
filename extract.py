@@ -7,7 +7,7 @@ from selenium.webdriver.common.by import By
 import time
 
 
-def downloadECPFile(searchTerm="协议库存"):
+def bidProjectSearch(searchTerm="协议库存"):
 
     # Initiate Google Chrome Driver
     service = ChromeService(executable_path=ChromeDriverManager().install())
@@ -28,14 +28,17 @@ def downloadECPFile(searchTerm="协议库存"):
     except:
         return "ECP2.0 Website Layout Mightbe changed, Examine XPATH"
 
-    try:
-        # Search relevant keys
-        searchBox = driver.find_element(By.NAME, "key")
-        searchBox.send_keys()
-        searchBox.submit()
-        time.sleep(1)
+    # Search relevant keys
+    searchBox = driver.find_element(By.NAME, "key")
+    searchBox.send_keys()
+    searchBox.submit(searchTerm)
+    time.sleep(1)
 
-        # If result not found, return error
+    # If result not found, return error
+    try:
+        driver.find_element(By.XPATH, "//page/div")
+    except:
+        return f"Search Term {searchTerm} entered didn't match any results."
 
 
 def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
