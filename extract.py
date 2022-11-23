@@ -91,6 +91,8 @@ def relatedSheetProcessing(relatedSheetPath: str, parameterPath: str):
                 if deliveryLoc not in locParameters:
                     locToBeAdded.append(deliveryLoc)
         locDf = pd.DataFrame(locToBeAdded)
+        if locDf:
+            print(f"New {len(locDf)} Project Locations are added to the file.")
 
         # Paste info to Parameters
         with pd.ExcelWriter(parameterPath, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
