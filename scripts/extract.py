@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 from openpyxl import *
-from openpyxl.styles import PatternFill, Border, Side, Alignment, colors
-from openpyxl.utils import get_column_letter
-import re
 
 
 def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):

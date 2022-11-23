@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 import os
-from openpyxl import *
-from openpyxl.styles import Border, Side, Alignment, colors, Font
-import re
+import seaborn as sns
+import matplotlib.pyplot as plt
+
 
 
 def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str) -> dict:
@@ -28,8 +28,6 @@ def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath
 
     # Main file manipulation
     project = pd.read_excel(filePath, sheet_name=None)
-
-    passedDict = {}
 
     for key, subproject in project.items():
         # Check num of clients
@@ -92,110 +90,34 @@ def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath
             with pd.ExcelWriter(outPath, mode="a", engine='openpyxl', if_sheet_exists="new") as writer:
                 subproject.to_excel(writer, sheet_name=key, index=False)
         else:
-            subproject.to_excel(outPath, sheet_name=key, index=False)
+            subproject.to_excel(outPath, engine="openpyxl",
+                                sheet_name=key, index=False)
 
 
-def bidExcelFormat(filePath: str):
+def plotBidPercentages(filePath):
 
     assert ".xlsx" in filePath, f"Input FilePath given is not Excel"
 
-    # Using OpenPyXL to finish formating and grouping
-    wb = load_workbook(filePath)
+    bidFiles = pd.read_excel(filePath, sheet_name=None)
 
-    for sheetname in wb.sheetnames:
-        sheet = wb[sheetname]
-        rowcount = sheet.max_row
-        colcount = sheet.max_column
+    _, axs = plt.subplots(nrows=len(bidFiles), figsize=(6, 15))
+    i = 0
 
-        # Default Border, Alignment
-        border = Border(left=Side(border_style='thin', color=colors.BLACK), right=Side(border_style='thin', color=colors.BLACK),
-                        top=Side(border_style='thin', color=colors.BLACK), bottom=Side(border_style='thin', color=colors.BLACK))
-        leftalign = Alignment(
-            horizontal='left', vertical='center', wrap_text=True)
-        centeralign = Alignment(
-            horizontal='center', vertical='center', wrap_text=True)
+    # Plot Percengtages on the graph to show distribution
+    for key, bidFile in bidFiles.items():
+        # Remove unnecessary data, Calculate sum again because of inability to receive data
+        bidFile = bidFile[bidFile['包名称'].str.match('^((?!Total).)*$')]
+        plotFile = bidFile.groupby(['包名称']).sum(
+            numeric_only=True).reset_index()
+        plotFile['比例'] = 1 - plotFile['CB总价']/plotFile['含税总价']
 
-        # Find the number of unique Baos
-        bao = [cell.value for cell in sheet['B']]
-        baoNum = len(set(bao))
+        # Plot with Seaborn
+        sns.scatterplot(data=plotFile, x=np.arange(
+            plotFile.shape[0]), y='比例', ax=axs[i])
+        axs[i].set_title(key)
+        axs[i].set_ylim(min(plotFile['比例'])-0.01, max(plotFile['比例'])+0.01)
 
-        rowsToBeAdded = [2]
-        i = 2
-
-        # Set Up Subtotal Structures used in Excel
-        while(i < rowcount+baoNum+1):
-
-            if sheet.cell(i, 2).value != sheet.cell(i+1, 2).value:
-                rowsToBeAdded.append(i)
-                sheet.insert_rows(i+1)
-                sheet.cell(i+1, 2).value = sheet.cell(i, 2).value+" Total"
-                sheet.cell(i+1, 2).font = Font(bold=True)
-                sheet.cell(i+1, 14).value = "=SUBTOTAL(9,N" + \
-                    str(rowsToBeAdded[-2])+":N"+str(i)+")"
-                sheet.cell(i+1, 16).value = "=SUBTOTAL(9,P" + \
-                    str(rowsToBeAdded[-2])+":P"+str(i)+")"
-                sheet.cell(i+1, 17).value = "=1-P"+str(i)+"/N"+str(i)
-                i += 1
-            i += 1
-
-        # Update Rowcount and setup Grand Total
-        rowcount = sheet.max_row
-        sheet.cell(rowcount-1, 2).value = "Grand Total"
-        sheet.cell(rowcount-1, 2).font = Font(bold=True)
-        sheet.cell(rowcount-1, 14).value = "=SUBTOTAL(9, N2:N" + \
-            str(rowcount-3)+")"
-        sheet.cell(rowcount-1, 14).value = "=SUBTOTAL(9, P2:P" + \
-            str(rowcount-3)+")"
-
-       # Format columns using predefined rules, using col numbers instead for simplicity
-        for i in range(2, rowcount):
-            for j in range(1, colcount+1):
-                sheet.cell(i, j).border = border
-                if j in [4, 5, 8]:
-                    sheet.cell(i, j).alignment = leftalign
-                else:
-                    if j == 17:
-                        sheet.cell(i, j).number_format = "0.00%"
-                    sheet.cell(i, j).alignment = centeralign
-
-        # Column Width Adjustments, find column width
-        for col in sheet.columns:
-            curwidth = len(re.sub(
-                "[A-Za-z0-9\!\%\[\]\,\。]", "", str(col[0].value))) + len(str(col[0].value))
-            for j in range(len(col)):
-                chinese = len(
-                    re.sub("[A-Za-z0-9\!\%\[\]\,\。]", "", str(col[j].value)))
-                if curwidth < chinese + len(str(col[j].value)):
-                    curwidth = chinese + len(str(col[j].value))
-            sheet.column_dimensions[col[0].column_letter].width = curwidth+0.8
-
-        # Row Width
-        for i in range(1, rowcount):
-            sheet.row_dimensions[i].height = 17
-
-        # Hide Irrelavent columns
-        clients = [cell.value for cell in sheet['E']]
-        invisible = ['A', 'C', 'F', 'G', 'I',
-                     'R', 'U', 'V', 'X', 'Y', 'Z', 'AA']
-        if len(set(clients)) > 2:
-            invisible = invisible + ['D']
-        else:
-            invisible = invisible + ['E']
-        for col in invisible:
-            sheet.column_dimensions[col].hidden = True
-
-        # Set up Grouping in Excel by levels
-        sheet.sheet_properties.outlinePr.summaryBelow = True
-        sheet.row_dimensions.group(2, rowcount-2, outline_level=1)
-        for i in range(len(rowsToBeAdded)-1):
-            if i == 0:
-                sheet.row_dimensions.group(
-                    2, rowsToBeAdded[i+1], outline_level=2)
-            else:
-                sheet.row_dimensions.group(
-                    rowsToBeAdded[i]+2, rowsToBeAdded[i+1], outline_level=2)
-
-    wb.save(filePath)
+        i += 1
 
 
 def migration(filePath, outPath):
@@ -257,3 +179,130 @@ def migration(filePath, outPath):
     with pd.ExcelWriter(outPath, mode='a', engine='openpyxl', if_sheet_exists='new') as writer:
         finalTable.to_excel(writer, sheet_name='报价方式-单价',
                             index=False, startrow=1, startcol=1)
+
+
+def splitFileCal(filePath: str, outPath: str, *submitted_file):
+    '''
+    Divide Excels downloaded from SGCC ECP2.0 and split them into separate sheets based on bao
+    Calculate price scores and other metrics for each individual baos
+    ---
+    download_file: Directory of file downloaded from ECP2.0
+    outpath: Directory of the output file
+    submitted_file: Directory of the original pricing file
+    --
+    return: metrics
+    '''
+
+    if submitted_file:
+        pricing = pd.read_excel(submitted_file[0], sheet_name=None)
+
+    # Clean up Bao Names and Bid amounts
+    tallyFile = pd.read_excel(filePath)
+    bid_tally = cleanFile(tallyFile)
+    baoNames = list(set(tallyFile['分包名称']))
+    baoNames.sort()
+
+    # Needs to create a try/except statement for error handling
+    averageMethod = int(input('若本次投标为区间平均价法, 输入1, 次低价平均法输入0'))
+    if averageMethod:
+        cvalue = float(input('请输入该标段C值, 小数形式'))
+    n1value = float(input('请输入该标段n1值'))
+    n2value = float(input('请输入该标段n2值'))
+
+    directory = []
+
+    for baoName in baoNames:
+
+        # Use self or number 5 as anchor
+        bao = bid_tally[bid_tally['分包名称'] == baoName].sort_values(by='投标价格')
+        bao = bao.reset_index(drop=True)
+        try:
+            anchor = bao[bao['投标人名称'] == '浙江高盛输变电设备股份有限公司']['投标价格'].values[0]
+        except:
+            print("为参加该包投标, 已第五名为基准")
+            anchor = bao.loc[5, '投标价格']
+        bao['开标备注'] = bao['投标价格']/anchor - 1
+        bao.drop(index=bao[np.abs(bao['开标备注']) > 5].index, inplace=True)
+        bao.reset_index(drop=True, inplace=True)
+
+        # If pricing file was provided, can calculate metrics
+        if submitted_file:
+            pricingbao = pricing[bao.loc[0, '分标名称']]
+            percent = pricingbao[pricingbao['包名称'] ==
+                                 baoName + " Total"]["比例"].values[0]
+        else:
+            percent = 0
+
+        # Calculate bidding scores given how many bidders
+        # This could become an function outside the parameters if required
+        bidnum = bao.shape[0]
+        if bidnum > 30:
+            bideval = bao.iloc[3:-4, :]
+        elif bidnum > 20:
+            bideval = bao.iloc[2:-3, :]
+        elif bidnum > 10:
+            bideval = bao.iloc[1:-2, :]
+        elif bidnum > 5:
+            bideval = bao.iloc[1:-1, :]
+        else:
+            bideval = bao
+        c1 = np.average(bideval['投标价格'])
+        bidupper = c1 * 1.1
+        bidlower = c1 * 0.85
+        lower = bideval.iloc[0]['投标价格'] >= bidlower
+        upper = bideval.iloc[-1]['投标价格'] <= bidupper
+        if lower and upper:
+            c2 = c1
+        else:
+            c2 = np.average(bideval[(bideval['投标价格'] > bidlower) & (
+                bideval['投标价格'] < bidupper)]['投标价格'])
+        if averageMethod:
+            average = c2 * (1-cvalue)
+        else:
+            if lower:
+                average = (bideval.iloc[0]['投标价格'] + c2)/2
+            else:
+                average = (
+                    min(bideval[(bideval['投标价格'] > bidlower)]['投标价格']) + c2)/2
+            cvalue = 'N/A'
+        bao['得分'] = np.where(bao['投标价格'] <= average, 100 - n2value * abs(100 * (bao['投标价格'] / average - 1)),
+                             100 - n1value * abs(100 * (bao['投标价格'] / average - 1)))
+
+        directory.append((c1, lower, upper, c2, cvalue, average, percent))
+        # Print all numbers to Excel
+        if os.path.isfile(outPath):
+            with pd.ExcelWriter(outPath, mode="a", engine='openpyxl') as writer:
+                bao.to_excel(writer, index_label='No.',
+                             sheet_name='Sheet' + baoName[1:])
+        else:
+            bao.to_excel(outPath, engine="openpyxl",
+                         sheet_name='Sheet' + baoName[1:])
+
+    return directory
+
+
+def cleanFile(dataframe):
+    """Clean up different kinds of ECP2.0 files"""
+    # Deal with different versions of the file
+    if 'No.' in dataframe.columns:
+        index = 'No.'
+    else:
+        index = '序号'
+
+    if pd.isna(dataframe.iloc[0, 0]):
+        dataframe = dataframe.drop(columns="Unnamed: 0")
+        dataframe = dataframe.dropna()
+
+    if not '投标价格' in dataframe.columns:
+        dataframe = dataframe.rename({'投标价格（万元）': '投标价格'}, axis=1)
+    dataframe['分包名称'] = dataframe['分包名称'].apply(
+        lambda x: x.replace('包', '包0') if len(x) == 2 else x)
+
+    # Remove non numerical entries
+    dataframe = dataframe[dataframe['投标价格'].apply(lambda x: str(x).isascii())]
+    dataframe['投标价格'] = dataframe['投标价格'].astype(str)
+    dataframe['投标价格'] = dataframe['投标价格'].str.replace(',', '')
+    dataframe['投标价格'] = pd.to_numeric(dataframe['投标价格'], downcast='float')
+    dataframe = dataframe.drop(labels=index, axis=1)
+
+    return dataframe
