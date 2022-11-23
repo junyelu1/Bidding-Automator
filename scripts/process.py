@@ -96,6 +96,9 @@ def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath
 
 
 def bidExcelFormat(filePath: str):
+
+    assert ".xlsx" in filePath, f"Input FilePath given is not Excel"
+
     # Using OpenPyXL to finish formating and grouping
     wb = load_workbook(filePath)
 
@@ -193,3 +196,64 @@ def bidExcelFormat(filePath: str):
                     rowsToBeAdded[i]+2, rowsToBeAdded[i+1], outline_level=2)
 
     wb.save(filePath)
+
+
+def migration(filePath, outPath):
+    '''
+    Mapping completed table onto worksheets ready for submission
+    ---
+    input: confirmed Excelsheets
+    output: Excelsheets ready for submssion
+    ---
+    '''
+
+    # Input and process all files, locate relevant sheets by matching number
+    try:
+        inputFile = pd.read_excel(
+            filePath, sheet_name=None, converters={'网省采购申请号': int})
+        table = pd.read_excel(
+            outPath, skiprows=0, usecols='A:S', converters={'网省采购申请行号': int})
+        table = table.drop('未含税单价(万)', axis=1)
+    except:
+        return "File format might have changed, check source files."
+
+    if len(table.loc[0, '分包名称']) == 2:
+        table.loc[:, '分包名称'] = table.loc[:, '分包名称'].apply(
+            lambda x: x.replace('包', '包0') if len(x) == 2 else x)
+    for _, sheet in inputFile.items():
+        if sheet.loc[0, '网省采购申请号'] in list(table['网省采购申请行号']):
+            inputSheet = sheet
+            break
+
+    # Migrate data
+    temp = inputSheet.loc[:, ['包名称', '网省采购申请号', '物资名称', '未含税单价']]
+    temp = temp.rename(columns={
+                       '包名称': '分包名称', '网省采购申请号': '网省采购申请行号', '物资名称': '物料名称', '未含税单价': '未含税单价(万)'})
+    try:
+        table = pd.merge(table, temp, on=['分包名称', '物料名称', '网省采购申请行号'])
+    except:
+        return f"{outPath.split('/')[-1].split('.')[0]} 存在数据问题"
+
+    # Followup with computations
+    table['税率（%）'] = 13
+    table['含税单价(万)'] = table['未含税单价(万)'] * (1 + table['税率（%）']/100)
+    table['未含税合价(万)'] = table['未含税单价(万)'] * table['数量']
+    table['含税合价(万)'] = table['含税单价(万)'] * table['数量']
+
+    # Check if two totals is the same
+    if not np.isclose(sheet.tail(1)['含税总价'].values[0], table.sum()['含税合价(万)'], rtol=0, atol=1e-10):
+        return f"{outPath.split('/')[-1].split('.')[0]} 与表格总价差异较大"
+
+    new_cols = ['分包编号', '分包名称', '轮次', '附件上传状态', '物料编码', '物料名称', '技术规范书ID', '网省采购申请行号',
+                '项目单位', '单位', '扩展描述', '包限价(万)', '行限价(万)', '数量', '未含税单价(万)', '税率（%）', '含税单价(万)',
+                '未含税合价(万)', '含税合价(万)']
+    finalTable = table.reindex(columns=new_cols)
+
+    # Safeguard against price ceilings
+    if any(table['行限价(万)'].astype(str).str.contains('\d', regex=True)):
+        if any(table['行限价(万)'] < table['含税合价(万)']):
+            return f"{outPath.split('/')[-1].split('.')[0]} 超过行限价"
+
+    with pd.ExcelWriter(outPath, mode='a', engine='openpyxl', if_sheet_exists='new') as writer:
+        finalTable.to_excel(writer, sheet_name='报价方式-单价',
+                            index=False, startrow=1, startcol=1)
