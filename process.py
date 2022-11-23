@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
 import os
+from openpyxl import *
+from openpyxl.styles import Border, Side, Alignment, colors, Font
+import re
 
 
-def excelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str):
+def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str) -> dict:
     """Takes Excel sheets from Sourcefile, and Processing it and output the completed file without styles
         - all path has to be full path
         - filePath: Path of input files
@@ -25,6 +28,8 @@ def excelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: s
 
     # Main file manipulation
     project = pd.read_excel(filePath, sheet_name=None)
+
+    passedDict = {}
 
     for key, subproject in project.items():
         # Check num of clients
@@ -88,3 +93,103 @@ def excelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: s
                 subproject.to_excel(writer, sheet_name=key, index=False)
         else:
             subproject.to_excel(outPath, sheet_name=key, index=False)
+
+
+def bidExcelFormat(filePath: str):
+    # Using OpenPyXL to finish formating and grouping
+    wb = load_workbook(filePath)
+
+    for sheetname in wb.sheetnames:
+        sheet = wb[sheetname]
+        rowcount = sheet.max_row
+        colcount = sheet.max_column
+
+        # Default Border, Alignment
+        border = Border(left=Side(border_style='thin', color=colors.BLACK), right=Side(border_style='thin', color=colors.BLACK),
+                        top=Side(border_style='thin', color=colors.BLACK), bottom=Side(border_style='thin', color=colors.BLACK))
+        leftalign = Alignment(
+            horizontal='left', vertical='center', wrap_text=True)
+        centeralign = Alignment(
+            horizontal='center', vertical='center', wrap_text=True)
+
+        # Find the number of unique Baos
+        bao = [cell.value for cell in sheet['B']]
+        baoNum = len(set(bao))
+
+        rowsToBeAdded = [2]
+        i = 2
+
+        # Set Up Subtotal Structures used in Excel
+        while(i < rowcount+baoNum+1):
+
+            if sheet.cell(i, 2).value != sheet.cell(i+1, 2).value:
+                rowsToBeAdded.append(i)
+                sheet.insert_rows(i+1)
+                sheet.cell(i+1, 2).value = sheet.cell(i, 2).value+" Total"
+                sheet.cell(i+1, 2).font = Font(bold=True)
+                sheet.cell(i+1, 14).value = "=SUBTOTAL(9,N" + \
+                    str(rowsToBeAdded[-2])+":N"+str(i)+")"
+                sheet.cell(i+1, 16).value = "=SUBTOTAL(9,P" + \
+                    str(rowsToBeAdded[-2])+":P"+str(i)+")"
+                sheet.cell(i+1, 17).value = "=1-P"+str(i)+"/N"+str(i)
+                i += 1
+            i += 1
+
+        # Update Rowcount and setup Grand Total
+        rowcount = sheet.max_row
+        sheet.cell(rowcount-1, 2).value = "Grand Total"
+        sheet.cell(rowcount-1, 2).font = Font(bold=True)
+        sheet.cell(rowcount-1, 14).value = "=SUBTOTAL(9, N2:N" + \
+            str(rowcount-3)+")"
+        sheet.cell(rowcount-1, 14).value = "=SUBTOTAL(9, P2:P" + \
+            str(rowcount-3)+")"
+
+       # Format columns using predefined rules, using col numbers instead for simplicity
+        for i in range(2, rowcount):
+            for j in range(1, colcount+1):
+                sheet.cell(i, j).border = border
+                if j in [4, 5, 8]:
+                    sheet.cell(i, j).alignment = leftalign
+                else:
+                    if j == 17:
+                        sheet.cell(i, j).number_format = "0.00%"
+                    sheet.cell(i, j).alignment = centeralign
+
+        # Column Width Adjustments, find column width
+        for col in sheet.columns:
+            curwidth = len(re.sub(
+                "[A-Za-z0-9\!\%\[\]\,\。]", "", str(col[0].value))) + len(str(col[0].value))
+            for j in range(len(col)):
+                chinese = len(
+                    re.sub("[A-Za-z0-9\!\%\[\]\,\。]", "", str(col[j].value)))
+                if curwidth < chinese + len(str(col[j].value)):
+                    curwidth = chinese + len(str(col[j].value))
+            sheet.column_dimensions[col[0].column_letter].width = curwidth+0.8
+
+        # Row Width
+        for i in range(1, rowcount):
+            sheet.row_dimensions[i].height = 17
+
+        # Hide Irrelavent columns
+        clients = [cell.value for cell in sheet['E']]
+        invisible = ['A', 'C', 'F', 'G', 'I',
+                     'R', 'U', 'V', 'X', 'Y', 'Z', 'AA']
+        if len(set(clients)) > 2:
+            invisible = invisible + ['D']
+        else:
+            invisible = invisible + ['E']
+        for col in invisible:
+            sheet.column_dimensions[col].hidden = True
+
+        # Set up Grouping in Excel by levels
+        sheet.sheet_properties.outlinePr.summaryBelow = True
+        sheet.row_dimensions.group(2, rowcount-2, outline_level=1)
+        for i in range(len(rowsToBeAdded)-1):
+            if i == 0:
+                sheet.row_dimensions.group(
+                    2, rowsToBeAdded[i+1], outline_level=2)
+            else:
+                sheet.row_dimensions.group(
+                    rowsToBeAdded[i]+2, rowsToBeAdded[i+1], outline_level=2)
+
+    wb.save(filePath)
