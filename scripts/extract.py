@@ -68,7 +68,6 @@ def relatedSheetProcessing(relatedSheetPath: str, parameterPath: str):
         projectCode = sheet.loc[1, '分标编号']
         projectOwner = sheet.loc[1, '项目单位']
         projectName = name
-        locToBeAdded = []
 
         # Modify information in the worksheet
         projectBao = sorted([x.replace("包", "包0") if len(
@@ -84,15 +83,15 @@ def relatedSheetProcessing(relatedSheetPath: str, parameterPath: str):
         projectProdDf = pd.DataFrame(projectProd)
 
         # Add unknown location to the list if any
-        projectDeliveryLoc = sheet.loc[:, '需求单位'].unique()
-        locParameters = parameterSheet['Sheet3'].loc[:, '需求单位'].values
+        projectDeliveryLoc = set(sheet.loc[:, '需求单位'].unique())
+        locParameters = set(parameterSheet['Sheet3'].loc[:, '需求单位'].values)
         if len(projectDeliveryLoc) > 1:
-            for deliveryLoc in projectDeliveryLoc:
-                if deliveryLoc not in locParameters:
-                    locToBeAdded.append(deliveryLoc)
-        locDf = pd.DataFrame(locToBeAdded)
-        if locDf:
-            print(f"New {len(locDf)} Project Locations are added to the file.")
+            if projectDeliveryLoc.issubset(locParameters):
+                locDf = pd.DataFrame([])
+            else:
+                locDf = pd.DataFrame(projectDeliveryLoc - locParameters)
+        else:
+            locDf = pd.DataFrame([])
 
         # Paste info to Parameters
         with pd.ExcelWriter(parameterPath, engine="openpyxl", mode="a", if_sheet_exists="overlay") as writer:
