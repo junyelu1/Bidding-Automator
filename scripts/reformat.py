@@ -108,7 +108,7 @@ def bidExcelFormat(filePath: str):
     wb.save(filePath)
 
 
-def resultExcelFormat(outPath, data):
+def resultExcelFormat(outPath: str, data):
     '''
     Format each sheet, and dump metrics calculated from split function onto sheets
     ---

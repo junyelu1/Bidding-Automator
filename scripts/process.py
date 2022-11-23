@@ -5,7 +5,6 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-
 def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str) -> dict:
     """Takes Excel sheets from Sourcefile, and Processing it and output the completed file without styles
         - all path has to be full path
@@ -219,7 +218,7 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
         try:
             anchor = bao[bao['投标人名称'] == '浙江高盛输变电设备股份有限公司']['投标价格'].values[0]
         except:
-            print("为参加该包投标, 已第五名为基准")
+            print("为参加该包投标, 以第五名为基准")
             anchor = bao.loc[5, '投标价格']
         bao['开标备注'] = bao['投标价格']/anchor - 1
         bao.drop(index=bao[np.abs(bao['开标备注']) > 5].index, inplace=True)
@@ -249,6 +248,7 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
         c1 = np.average(bideval['投标价格'])
         bidupper = c1 * 1.1
         bidlower = c1 * 0.85
+        # Determine lower and upper bound
         lower = bideval.iloc[0]['投标价格'] >= bidlower
         upper = bideval.iloc[-1]['投标价格'] <= bidupper
         if lower and upper:
@@ -256,6 +256,8 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
         else:
             c2 = np.average(bideval[(bideval['投标价格'] > bidlower) & (
                 bideval['投标价格'] < bidupper)]['投标价格'])
+
+        # Differentiate between two methods
         if averageMethod:
             average = c2 * (1-cvalue)
         else:
@@ -265,6 +267,7 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
                 average = (
                     min(bideval[(bideval['投标价格'] > bidlower)]['投标价格']) + c2)/2
             cvalue = 'N/A'
+
         bao['得分'] = np.where(bao['投标价格'] <= average, 100 - n2value * abs(100 * (bao['投标价格'] / average - 1)),
                              100 - n1value * abs(100 * (bao['投标价格'] / average - 1)))
 
