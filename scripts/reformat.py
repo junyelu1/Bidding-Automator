@@ -18,12 +18,7 @@ def bidExcelFormat(filePath: str):
         colcount = sheet.max_column
 
         # Default Border, Alignment
-        border = Border(left=Side(border_style='thin', color=colors.BLACK), right=Side(border_style='thin', color=colors.BLACK),
-                        top=Side(border_style='thin', color=colors.BLACK), bottom=Side(border_style='thin', color=colors.BLACK))
-        leftalign = Alignment(
-            horizontal='left', vertical='center', wrap_text=True)
-        centeralign = Alignment(
-            horizontal='center', vertical='center', wrap_text=True)
+        border, leftalign, centeralign, _ = defaultExcelStyle
 
         # Find the number of unique Baos
         bao = [cell.value for cell in sheet['B']]
@@ -126,13 +121,8 @@ def resultExcelFormat(outPath: str, data):
             colnames.append(cell.value)
 
         # Format excel
-        border = Border(left=Side(border_style='thin', color=colors.BLACK), right=Side(border_style='thin', color=colors.BLACK),
-                        top=Side(border_style='thin', color=colors.BLACK), bottom=Side(border_style='thin', color=colors.BLACK))
-        leftalign = Alignment(
-            horizontal='left', vertical='center', wrap_text=True)
-        centeralign = Alignment(
-            horizontal='center', vertical='center', wrap_text=True)
-        color = Font(color='00FF0000')
+        border, leftalign, centeralign, color = defaultExcelStyle
+
         for i in range(1, rowcount+1):
             for j in range(1, len(colnames)+1):
                 sheet.cell(i, j).border = border
@@ -209,3 +199,15 @@ def resultExcelFormat(outPath: str, data):
                 sheet.cell(i, j).alignment = centeralign
         x = x+1
     wb.save(outPath)
+
+
+def defaultExcelStyle():
+    border = Border(left=Side(border_style='thin', color=colors.BLACK), right=Side(border_style='thin', color=colors.BLACK),
+                    top=Side(border_style='thin', color=colors.BLACK), bottom=Side(border_style='thin', color=colors.BLACK))
+    leftalign = Alignment(
+        horizontal='left', vertical='center', wrap_text=True)
+    centeralign = Alignment(
+        horizontal='center', vertical='center', wrap_text=True)
+    color = Font(color='00FF0000')
+
+    return border, leftalign, centeralign, color

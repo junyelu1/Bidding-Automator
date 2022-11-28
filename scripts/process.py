@@ -3,6 +3,7 @@ import numpy as np
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
+from pandas.plotting import table
 
 
 def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str) -> dict:
@@ -119,6 +120,48 @@ def plotBidPercentages(filePath):
         i += 1
 
 
+def exportTempBid(filePath):
+
+    assert ".xlsx" in filePath, f"Input FilePath given is not Excel"
+
+    bidFiles = pd.read_excel(filePath, sheet_name=None)
+
+    # Return Number of Baos in the file
+    height = max([sum(bidFile['包名称'].str.contains('Total')) -
+                 1 for bidFile in bidFiles.values()])
+
+    # Dynamically adjust figure height and width based on content
+    _, axs = plt.subplots(ncols=len(bidFiles),
+                          figsize=(10, max(height // 2.5, 4.5)))
+    i = 0
+
+    for key, bidFile in bidFiles.items():
+        bidFile = bidFile[bidFile['包名称'].str.match('^((?!Total).)*$')]
+        bidOwner = bidFile.loc[0, '项目单位']
+        bidFile = bidFile.groupby(['包名称']).sum(numeric_only=True)
+        bidFile = bidFile['含税总价'].apply('{:.6f}'.format)
+
+        if len(bidFiles) == 1:
+            tab = table(axs, bidFile, loc='center')
+            axs.set_frame_on(False)
+            axs.xaxis.set_visible(False)
+            axs.yaxis.set_visible(False)
+            tab.set_fontsize(12)
+            tab.auto_set_column_width(0)
+            tab.scale(1, 1.5)
+            axs.set_title(bidOwner + '\n' + key)
+        else:
+            tab = table(axs[i], bidFile, loc='center')
+            axs[i].set_frame_on(False)
+            axs[i].xaxis.set_visible(False)
+            axs[i].yaxis.set_visible(False)
+            tab.set_fontsize(12)
+            tab.auto_set_column_width(0)
+            tab.scale(1, 1.5)
+            axs[i].set_title(bidOwner + '\n' + key)
+            i += 1
+
+
 def migration(filePath, outPath):
     '''
     Mapping completed table onto worksheets ready for submission
@@ -149,7 +192,7 @@ def migration(filePath, outPath):
     # Migrate data
     temp = inputSheet.loc[:, ['包名称', '网省采购申请号', '物资名称', '未含税单价']]
     temp = temp.rename(columns={
-                       '包名称': '分包名称', '网省采购申请号': '网省采购申请行号', '物资名称': '物料名称', '未含税单价': '未含税单价(万)'})
+        '包名称': '分包名称', '网省采购申请号': '网省采购申请行号', '物资名称': '物料名称', '未含税单价': '未含税单价(万)'})
     try:
         table = pd.merge(table, temp, on=['分包名称', '物料名称', '网省采购申请行号'])
     except:
