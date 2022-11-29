@@ -18,7 +18,7 @@ def bidExcelFormat(filePath: str):
         colcount = sheet.max_column
 
         # Default Border, Alignment
-        border, leftalign, centeralign, _ = defaultExcelStyle
+        border, leftalign, centeralign, _ = defaultExcelStyle()
 
         # Find the number of unique Baos
         bao = [cell.value for cell in sheet['B']]
@@ -121,7 +121,7 @@ def resultExcelFormat(outPath: str, data):
             colnames.append(cell.value)
 
         # Format excel
-        border, leftalign, centeralign, color = defaultExcelStyle
+        border, leftalign, centeralign, color = defaultExcelStyle()
 
         for i in range(1, rowcount+1):
             for j in range(1, len(colnames)+1):

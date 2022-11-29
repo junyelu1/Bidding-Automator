@@ -100,7 +100,7 @@ def plotBidPercentages(filePath):
 
     bidFiles = pd.read_excel(filePath, sheet_name=None)
 
-    _, axs = plt.subplots(nrows=len(bidFiles), figsize=(6, 15))
+    _, axs = plt.subplots(nrows=len(bidFiles), figsize=(6, 4))
     i = 0
 
     # Plot Percengtages on the graph to show distribution
@@ -111,13 +111,20 @@ def plotBidPercentages(filePath):
             numeric_only=True).reset_index()
         plotFile['比例'] = 1 - plotFile['CB总价']/plotFile['含税总价']
 
-        # Plot with Seaborn
-        sns.scatterplot(data=plotFile, x=np.arange(
-            plotFile.shape[0]), y='比例', ax=axs[i])
-        axs[i].set_title(key)
-        axs[i].set_ylim(min(plotFile['比例'])-0.01, max(plotFile['比例'])+0.01)
+        if len(bidFiles) == 1:
+            sns.scatterplot(data=plotFile, x=np.arange(
+                plotFile.shape[0]), y='比例', ax=axs)
+            axs.set_title(key)
+            axs.set_ylim(min(plotFile['比例'])-0.01, max(plotFile['比例'])+0.01)
 
-        i += 1
+        else:
+            # Plot with Seaborn
+            sns.scatterplot(data=plotFile, x=np.arange(
+                plotFile.shape[0]), y='比例', ax=axs[i])
+            axs[i].set_title(key)
+            axs[i].set_ylim(min(plotFile['比例'])-0.01, max(plotFile['比例'])+0.01)
+
+            i += 1
 
 
 def exportTempBid(filePath):

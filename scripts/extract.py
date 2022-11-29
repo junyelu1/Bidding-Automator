@@ -16,7 +16,7 @@ def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
         downloadFile = pd.read_excel(downloadPath, sheet_name=None)
 
         # Future Expansions possible into other products
-        relatedProd = ['架空绝缘导线', '集束绝缘导线', '架空线']
+        relatedProd = ['架空绝缘导线', '集束绝缘导线', '架空线', '低压电力电缆']
         prodList = [*downloadFile]
 
         fileName = ""
