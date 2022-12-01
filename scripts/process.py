@@ -248,7 +248,7 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
     # Clean up Bao Names and Bid amounts
     tallyFile = pd.read_excel(filePath)
     bid_tally = cleanFile(tallyFile)
-    baoNames = list(set(tallyFile['分包名称']))
+    baoNames = list(set(bid_tally['分包名称']))
     baoNames.sort()
 
     # Needs to create a try/except statement for error handling
@@ -268,7 +268,7 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
         try:
             anchor = bao[bao['投标人名称'] == '浙江高盛输变电设备股份有限公司']['投标价格'].values[0]
         except:
-            print("为参加该包投标, 以第五名为基准")
+            print("未参加该包投标, 以第五名为基准")
             anchor = bao.loc[5, '投标价格']
         bao['开标备注'] = bao['投标价格']/anchor - 1
         bao.drop(index=bao[np.abs(bao['开标备注']) > 5].index, inplace=True)
@@ -321,7 +321,8 @@ def splitFileCal(filePath: str, outPath: str, *submitted_file):
         bao['得分'] = np.where(bao['投标价格'] <= average, 100 - n2value * abs(100 * (bao['投标价格'] / average - 1)),
                              100 - n1value * abs(100 * (bao['投标价格'] / average - 1)))
 
-        directory.append((c1, lower, upper, c2, cvalue, average, percent))
+        directory.append(
+            (c1, lower, upper, c2, cvalue, average, percent, anchor))
         # Print all numbers to Excel
         if os.path.isfile(outPath):
             with pd.ExcelWriter(outPath, mode="a", engine='openpyxl') as writer:

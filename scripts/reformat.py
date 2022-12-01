@@ -17,6 +17,10 @@ def bidExcelFormat(filePath: str):
         rowcount = sheet.max_row
         colcount = sheet.max_column
 
+        # Check if the sheet was already formatted, then next sheet
+        if "Total" in sheet.cell(rowcount, 2).value:
+            continue
+
         # Default Border, Alignment
         border, leftalign, centeralign, _ = defaultExcelStyle()
 
@@ -190,7 +194,7 @@ def resultExcelFormat(outPath: str, data):
             sheet.cell(7, len(colnames)+3).value = 1 - \
                 sheet.cell(posx, posy).value*(1-data[x][6])/data[x][5]
         except:
-            sheet.cell(7, len(colnames)+3).value = 0
+            sheet.cell(7, len(colnames)+3).value = data[x][7]/data[x][5]-1
         sheet.cell(7, len(colnames)+3).number_format = "0.00%"
         sheet.cell(8, len(colnames)+2).value = "中标点数"
 
