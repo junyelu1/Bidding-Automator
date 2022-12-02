@@ -28,7 +28,7 @@ def bidProjectSearch(searchTerm="协议库存"):
         time.sleep(3)
 
     except:
-        return "ECP2.0 Website Layout Mightbe changed, Examine XPATH"
+        return "ECP2.0 Website Layout might have changed, Examine XPATH"
 
     # Search relevant keys
     searchBox = driver.find_element(By.NAME, "key")

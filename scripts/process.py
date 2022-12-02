@@ -3,7 +3,7 @@ import numpy as np
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
-from pandas.plotting import table
+from components import dataframeToImg
 
 
 def bidExcelProcessing(filePath: str, costPath: str, parameterPath: str, outPath: str) -> dict:
@@ -147,25 +147,13 @@ def exportTempBid(filePath):
         bidOwner = bidFile.loc[0, '项目单位']
         bidFile = bidFile.groupby(['包名称']).sum(numeric_only=True)
         bidFile = bidFile['含税总价'].apply('{:.6f}'.format)
+        bidFile = bidFile.reset_index()
 
         if len(bidFiles) == 1:
-            tab = table(axs, bidFile, loc='center')
-            axs.set_frame_on(False)
-            axs.xaxis.set_visible(False)
-            axs.yaxis.set_visible(False)
-            tab.set_fontsize(12)
-            tab.auto_set_column_width(0)
-            tab.scale(1, 1.5)
-            axs.set_title(bidOwner + '\n' + key)
+            dataframeToImg(axs, bidFile, bidOwner + '\n' + key)
+
         else:
-            tab = table(axs[i], bidFile, loc='center')
-            axs[i].set_frame_on(False)
-            axs[i].xaxis.set_visible(False)
-            axs[i].yaxis.set_visible(False)
-            tab.set_fontsize(12)
-            tab.auto_set_column_width(0)
-            tab.scale(1, 1.5)
-            axs[i].set_title(bidOwner + '\n' + key)
+            dataframeToImg(axs[i], bidFile, bidOwner + '\n' + key)
             i += 1
 
 

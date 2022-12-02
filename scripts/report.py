@@ -1,8 +1,8 @@
+from openpyxl import *
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pandas.plotting import table
-from openpyxl import *
+from components import dataframeToImg
 
 
 def bidResultReporting(outPath: str, bidder: str):
@@ -40,16 +40,10 @@ def bidResultReporting(outPath: str, bidder: str):
     result = pd.DataFrame.from_dict(report, orient='index', columns=[
                                     '金额', '得分', '排名', '厂家数', '名次'])
     result = result.reset_index(names="包号")
-    tab = table(ax, result, loc='center')
-    ax.set_frame_on(False)
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-    tab.set_fontsize(12)
-    tab.auto_set_column_width(0)
-    tab.scale(1, 1.5)
     title = "采购单位: " + projectName + '\n' + "分标名称: " + subprojectName
-    ax.set_title(title + '\n' + "投标人名称: " + bidder + '\n' + "平均得分: " +
-                 str(np.average([x[1] for x in list(report.values())])) + '\n' + "平均名次: " + str(np.average([x[-1] for x in list(report.values())])))
+    thisTitle = title + '\n' + "投标人名称: " + bidder + '\n' + "平均得分: " + str(np.average([x[1] for x in list(
+        report.values())])) + '\n' + "平均名次: " + str(np.average([x[-1] for x in list(report.values())]))
+    dataframeToImg(ax, result, thisTitle)
 
     return title, result
 
@@ -102,14 +96,8 @@ def finalResultReporting(successBidPath: str, resultPath: str, title: str, data)
 
     _, ax = plt.subplots(
         figsize=(10, max(len(successBoard) // 2.5, 4)))
-    tab = table(ax, successBoard, loc='center')
-    ax.set_frame_on(False)
-    ax.xaxis.set_visible(False)
-    ax.yaxis.set_visible(False)
-    tab.set_fontsize(12)
-    tab.auto_set_column_width([0, 1, 2, 3, 4, 5, 6])
-    tab.scale(1, 1.5)
-    ax.set_title(title + '\n' + "中标结果")
+    thisTitle = title + '\n' + "中标结果"
+    dataframeToImg(ax, successBoard, thisTitle)
 
     wb = load_workbook(resultPath)
     for sheetname in wb.sheetnames:

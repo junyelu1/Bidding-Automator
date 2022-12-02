@@ -3,7 +3,7 @@ import numpy as np
 from openpyxl import *
 
 
-def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
+def filterDownloadExcel(downloadPath: str, cable: int, savePath='~/Desktop/相关清单/'):
     '''
     Filter Excel files containing multiple products downloaded from ECP 2.0
     '''
@@ -11,12 +11,14 @@ def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
     # Input Type check
     assert ".xlsx" in downloadPath, f"Downloaded FilePath given is not Excel"
 
-    try:
-        # Import Files into Pandas DataFrame
-        downloadFile = pd.read_excel(downloadPath, sheet_name=None)
+    # Import Files into Pandas DataFrame
+    downloadFile = pd.read_excel(downloadPath, sheet_name=None)
 
+    try:
         # Future Expansions possible into other products
-        relatedProd = ['架空绝缘导线', '集束绝缘导线', '架空线', '低压电力电缆']
+        relatedProd = ['架空绝缘导线', '集束绝缘导线', '架空线']
+        if bool(cable):
+            relatedProd.append('低压电力电缆')
         prodList = [*downloadFile]
 
         fileName = ""
@@ -29,10 +31,10 @@ def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
                         '国网')[1].split('电力')[0]
 
         if not downloadFile:
-            return 'No related subprojects present in this file.'
+            print("No related subprojects present in this file.")
 
     except:
-        return "Erros occured during extraction Process."
+        print("Erros occured during extraction Process.")
 
     # Writing Found Sheets into new sheets
     try:
@@ -45,7 +47,7 @@ def filterDownloadExcel(downloadPath: str, savePath='~/Desktop/相关清单/'):
         return saveFullPath
 
     except:
-        return "Errors occured during writing process."
+        print("Errors occured during writing process.")
 
 
 def relatedSheetProcessing(relatedSheetPath: str, parameterPath: str):
